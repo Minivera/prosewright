@@ -1,0 +1,46 @@
+{
+  "name": "prosewright",
+  "version": "0.0.1",
+  "description": "Scripting language and interpreter for creating memorable content in video games.",
+  "main": "src/index.ts",
+  "scripts": {
+    "lint": "eslint 'lib/**/*.{js,ts}'",
+    "test": "ts-node src/__tests__/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Minivera/prosewright.git"
+  },
+  "keywords": [
+    "programming",
+    "language",
+    "video",
+    "games",
+    "content",
+    "generation"
+  ],
+  "author": "Guillaume St-Pierre",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Minivera/prosewright/issues"
+  },
+  "homepage": "https://github.com/Minivera/prosewright#readme",
+  "dependencies": {
+    "parse-english": "^4.2.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^4.20.0",
+    "@typescript-eslint/parser": "^4.20.0",
+    "eslint": "^7.23.0",
+    "eslint-config-prettier": "^8.1.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.3.1",
+    "eslint-plugin-promise": "^4.3.1",
+    "eslint-plugin-standard": "^5.0.0",
+    "prettier": "^2.2.1",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.3"
+  }
+}
