@@ -13,6 +13,7 @@ export const tokens = {
   // Variable interaction tokens
   remember: /remember/i,
   forget: /forget/i,
+  recall: /recall/i,
   ask: /ask/i,
   answer: /answer/i,
   // Condition tokens
@@ -28,6 +29,8 @@ export const tokens = {
   // Object tokens
   possession: /(possess(?:es)?|owns?|contains?|has)/i,
   access: /(who|which)/i,
+  decrease: /decreased by/i,
+  increase: /increased by/i,
   // Value tokens
   true: /true/i,
   false: /false/i,

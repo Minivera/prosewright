@@ -2,31 +2,38 @@
 import * as Unist from '../types/unist';
 
 export enum StatementTypes {
-  Definitions,
-  Act,
-  Scene,
-  Dialogue,
-  Action,
-  Play,
-  Condition,
-  If,
-  Else,
-  Remember,
-  Forget,
-  Ask,
-  Possession,
-  Setter,
+  Definitions = 'definitions',
+  Act = 'act',
+  Scene = 'scene',
+  Dialogue = 'dialogue',
+  Action = 'action',
+  Play = 'play',
+  Condition = 'condition',
+  If = 'if',
+  Else = 'else',
+  Remember = 'remember',
+  Forget = 'forget',
+  Ask = 'ask',
+  Possession = 'possess',
+  Setter = 'set',
+  CustomAction = 'custom',
 }
 
 export enum ConditionOperators {
-  IsNot,
-  Is,
+  IsNot = 'isnot',
+  Is = 'is',
+  Recall = 'recall',
+}
+
+export enum IntegerOperators {
+  Decrease = 'decrease',
+  Increase = 'increase',
 }
 
 export enum ConditionSuboperators {
-  Valid,
-  BiggerThan,
-  SmallerThan,
+  Valid = 'valid',
+  BiggerThan = 'biggerthan',
+  SmallerThan = 'smallthan',
 }
 
 export interface Subject {
@@ -35,16 +42,26 @@ export interface Subject {
 }
 
 export interface Statement {
-  type: number;
+  type: string;
   position?: Unist.Position;
 }
 
 export type RootStatements = Definition | Act | Scene;
-export type ActiveStatements = Dialogue | Action | Play | If | Else | Remember | Forget | Ask | Possession | Setter;
+export type ActiveStatements =
+  | Dialogue
+  | Action
+  | Play
+  | If
+  | Else
+  | Remember
+  | Forget
+  | Ask
+  | Possession
+  | Setter
+  | CustomAction;
 
 export interface Program {
   children: RootStatements[];
-  mainScene?: Scene;
 }
 
 export interface Definition extends Statement {
@@ -125,10 +142,19 @@ export interface Possession extends Statement {
   type: StatementTypes.Possession;
   subject: Subject;
   value: string;
+  numericalValue?: string;
 }
 
 export interface Setter extends Statement {
   type: StatementTypes.Setter;
+  subtype?: IntegerOperators;
   subject: Subject;
+  value: string;
+}
+
+export interface CustomAction extends Statement {
+  type: StatementTypes.CustomAction;
+  subject: Subject;
+  action: string;
   value: string;
 }

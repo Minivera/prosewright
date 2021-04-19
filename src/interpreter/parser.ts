@@ -4,7 +4,7 @@ import * as Unist from '../../types/unist';
 import * as Nlcst from '../../types/nlcst';
 import { wordNodeToText } from './helpers';
 
-import { tokens as BaseTokens } from './tokens';
+import { tokens, tokens as BaseTokens } from './tokens';
 import {
   Act,
   ActiveStatements,
@@ -12,10 +12,12 @@ import {
   Condition,
   ConditionOperators,
   ConditionSuboperators,
+  CustomAction,
   Definition,
   Else,
   Forget,
   If,
+  IntegerOperators,
   Play,
   Program,
   Remember,
@@ -25,24 +27,23 @@ import {
 } from '../types';
 import { ParsingError } from './errors';
 
-// TODO: Implement decrease/increase number operations
 // noinspection UnnecessaryContinueJS
 export class ProseWrightParser {
-  private readonly text: string;
   private readonly internalTokens: typeof BaseTokens;
+  private readonly additionalTokens: Record<string, string | RegExp>;
   private readonly internalParser: English;
 
-  constructor(text: string, tokens: typeof BaseTokens) {
-    this.text = text;
+  constructor(tokens: typeof BaseTokens, additionalTokens: Record<string, string | RegExp> = {}) {
     this.internalTokens = tokens;
-    this.internalParser = new English(this.text);
+    this.additionalTokens = additionalTokens;
+    this.internalParser = new English();
   }
 
-  public parse(): Program {
+  public parse(text: string): Program {
     const program: Program = {
       children: [],
     };
-    const generatedTokens = this.internalParser.tokenize(this.text).reverse();
+    const generatedTokens = this.internalParser.tokenize(text).reverse();
 
     while (generatedTokens.length) {
       const currentToken = generatedTokens.pop();
@@ -143,7 +144,7 @@ export class ProseWrightParser {
           this.parseAct(currentToken, allTokens);
           return act;
         } else if (text.match(this.internalTokens.scene)) {
-          act.children.push(this.parseScene(act, currentToken, allTokens));
+          act.children.push(...this.parseScene(act, currentToken, allTokens));
         } else if (text.match(this.internalTokens.definitions)) {
           act.children.push(this.parseActDefinitions(act, currentToken, allTokens));
         } else {
@@ -160,7 +161,7 @@ export class ProseWrightParser {
     return act;
   }
 
-  private parseScene(act: Act, currentToken: Unist.Node, allTokens: Unist.Node[]): Scene {
+  private parseScene(act: Act, currentToken: Unist.Node, allTokens: Unist.Node[]): Scene[] {
     const scene: Scene = {
       type: StatementTypes.Scene,
       children: [],
@@ -229,10 +230,9 @@ export class ProseWrightParser {
           break;
         } else if (text.match(this.internalTokens.scene)) {
           // If hitting a new scene, then this scene is completed. Process and return.
-          act.children.push(this.parseScene(act, currentToken, allTokens));
-          break;
+          return [scene, ...this.parseScene(act, currentToken, allTokens)];
         } else if (text.match(this.internalTokens.definitions)) {
-          act.children.push(this.parseSceneDefinitions(act, scene, currentToken, allTokens));
+          scene.children.push(this.parseSceneDefinitions(act, scene, currentToken, allTokens));
         } else if (this.isActiveStatement(text)) {
           scene.children.push(...this.parseStatement(currentToken, allTokens, act, true));
         } else {
@@ -249,9 +249,7 @@ export class ProseWrightParser {
       }
     }
 
-    // Add this act to the program once done.
-    act.children.push(scene);
-    return scene;
+    return [scene];
   }
 
   private parseDefinitions(
@@ -281,13 +279,13 @@ export class ProseWrightParser {
         const text = wordNodeToText(currentToken as Nlcst.Word);
         if (text.match(this.internalTokens.act)) {
           // If hitting a act, then this definition is completed. Process and return.
-          this.parseAct(currentToken, allTokens);
-          break;
+          allTokens.push(currentToken);
+          return definition;
         } else if (text.match(this.internalTokens.scene)) {
           // If hitting a scene, then this definition is completed. Process and return.
           if (options.act) {
-            // Process the scene from the definition's act
-            this.parseScene(options.act, currentToken, allTokens);
+            allTokens.push(currentToken);
+            return definition;
           } else {
             throw new ParsingError(
               'Scenes should be added to acts and never at the root of a program.',
@@ -357,7 +355,7 @@ export class ProseWrightParser {
         // Extract the text from the first word encountered
         const text = wordNodeToText(currentToken as Nlcst.Word);
         if (text.match(this.internalTokens.act) && processSceneOrAct) {
-          this.parseAct(currentToken, allTokens);
+          allTokens.push(currentToken);
           return currentStatements;
         } else if (text.match(this.internalTokens.scene) && processSceneOrAct) {
           if (!act) {
@@ -366,7 +364,7 @@ export class ProseWrightParser {
               currentToken.position
             );
           }
-          this.parseScene(act, currentToken, allTokens);
+          allTokens.push(currentToken);
           return currentStatements;
         } else if (text.match(this.internalTokens.play)) {
           currentStatements.push(this.parsePlay(currentToken, allTokens));
@@ -812,6 +810,7 @@ export class ProseWrightParser {
   }
 
   private parseCondition(currentToken: Unist.Node, allTokens: Unist.Node[]): Condition[] {
+    let isRecall = false;
     const conditions: Condition[] = [
       {
         type: StatementTypes.Condition,
@@ -850,6 +849,7 @@ export class ProseWrightParser {
             position: currentToken.position,
           });
           currentCondition += 1;
+          isRecall = false;
           continue;
         }
 
@@ -873,15 +873,21 @@ export class ProseWrightParser {
               position: currentToken.position,
             });
             currentCondition += 1;
+            isRecall = false;
           }
-        } else if (text.match(this.internalTokens.is)) {
+        } else if (text.match(this.internalTokens.is) && !isRecall) {
           conditions[currentCondition].operator =
             conditions[currentCondition].operator === ConditionOperators.IsNot
               ? ConditionOperators.IsNot
               : ConditionOperators.Is;
-        } else if (text.match(this.internalTokens.not)) {
+        } else if (text.match(this.internalTokens.not) && !isRecall) {
           conditions[currentCondition].operator = ConditionOperators.IsNot;
-        } else if (!conditions[currentCondition].subject) {
+        } else if (text.match(this.internalTokens.recall)) {
+          // If recalling something, skip the subject and operators. Only get the value
+          isRecall = true;
+          delete conditions[currentCondition].subject;
+          conditions[currentCondition].operator = ConditionOperators.Recall;
+        } else if (!conditions[currentCondition].subject && !isRecall) {
           conditions[currentCondition].subject = this.parseSubject(text, allTokens);
         } else {
           conditions[currentCondition].value += text;
@@ -909,7 +915,11 @@ export class ProseWrightParser {
     });
 
     // Clean the invalid conditions
-    return conditions.filter(condition => condition.operator && condition.subject && condition.value);
+    return conditions.filter(condition =>
+      condition.operator && condition.operator !== ConditionOperators.Recall
+        ? condition.subject && condition.value
+        : condition.value
+    );
   }
 
   private parseElse(currentToken: Unist.Node, allTokens: Unist.Node[]): Else[] {
@@ -1061,8 +1071,9 @@ export class ProseWrightParser {
           statementType = StatementType.Set;
           break;
         } else {
-          // If running into any word that is not an operation at this stage, throw an error.
-          throw new ParsingError(`${text} is not a valid operation for an object statement`, currentToken.position);
+          // If running into any word that is not an operation at this stage, move to parsing an action
+          allTokens.push(currentToken);
+          break;
         }
       } else {
         throw new ParsingError(
@@ -1073,7 +1084,11 @@ export class ProseWrightParser {
     }
 
     const generateStatement = (value: string): ActiveStatements => {
-      const trimmed = value.trim();
+      let trimmed = value
+        .trim()
+        .replace(/^(an?|,)/i, '')
+        .replace(/,$/i, '')
+        .trim();
       switch (statementType) {
         case StatementType.DialogOrOption:
           return {
@@ -1086,22 +1101,38 @@ export class ProseWrightParser {
             subject: subject as Subject,
             text: trimmed,
           };
-        case StatementType.Set:
+        case StatementType.Set: {
+          let subtype: IntegerOperators | undefined;
+          if (trimmed.match(this.internalTokens.decrease)) {
+            subtype = IntegerOperators.Decrease;
+            trimmed = trimmed.replace(this.internalTokens.decrease, '').trim();
+          } else if (trimmed.match(this.internalTokens.increase)) {
+            subtype = IntegerOperators.Increase;
+            trimmed = trimmed.replace(this.internalTokens.increase, '').trim();
+          }
+
           return {
             type: StatementTypes.Setter,
+            subtype,
             position: currentToken.position,
             subject: subject as Subject,
             value: trimmed,
           };
-        case StatementType.SubObject:
+        }
+        case StatementType.SubObject: {
+          // TODO: Make this smarter, right now it only extract the first word as a number
+          const parts = /^(\d+)/g.exec(trimmed);
+
           return {
             type: StatementTypes.Possession,
             position: currentToken.position,
             subject: subject as Subject,
-            value: trimmed,
+            value: trimmed.replace(/^(\d+)/g, '').trim(),
+            numericalValue: parts && parts.length > 1 ? parts[1] : undefined,
           };
+        }
         default:
-          throw new ParsingError(`No valid operator found for an object statement`, currentToken.position);
+          return this.parseAction(currentToken, trimmed, subject as Subject);
       }
     };
 
@@ -1150,6 +1181,30 @@ export class ProseWrightParser {
     return [generateStatement(value)];
   }
 
+  private parseAction(currentToken: Unist.Node, value: string, subject: Subject): CustomAction {
+    let action: CustomAction | null = null;
+    Object.keys(this.additionalTokens).forEach(token => {
+      const keyword = this.additionalTokens[token];
+
+      const pattern = new RegExp('^' + (typeof keyword === 'string' ? keyword : keyword.source), 'i');
+      if (value.match(pattern)) {
+        action = {
+          type: StatementTypes.CustomAction,
+          subject: subject,
+          position: currentToken.position,
+          action: token,
+          value: value.replace(pattern, '').trim(),
+        };
+      }
+    });
+
+    if (action === null) {
+      throw new ParsingError(`No action found for the statement ${value}`, currentToken.position);
+    }
+
+    return action;
+  }
+
   private parseSubject(text: string, allTokens: Unist.Node[]): Subject {
     let value = text;
 
@@ -1173,7 +1228,7 @@ export class ProseWrightParser {
         // Extract the text from the first word encountered
         const text = wordNodeToText(currentToken as Nlcst.Word);
 
-        if (this.isKeyword(text)) {
+        if (this.isKeyword(text) || this.isAdditionalAction(text)) {
           allTokens.push(currentToken);
           break;
         }
@@ -1198,6 +1253,10 @@ export class ProseWrightParser {
 
       if (!element) {
         break;
+      }
+
+      if (element.match(/('s|s')/i)) {
+        continue;
       }
 
       currentSubject.parent = {
@@ -1235,6 +1294,15 @@ export class ProseWrightParser {
     );
   }
 
+  private isAdditionalAction(text: string): boolean {
+    return !!Object.keys(this.additionalTokens).find(token => {
+      const keyword = this.additionalTokens[token];
+
+      const pattern = new RegExp('^' + (typeof keyword === 'string' ? keyword : keyword.source), 'i');
+      return text.match(pattern);
+    });
+  }
+
   private lookaheadFor(tokens: Unist.Node[], token: RegExp): boolean {
     for (let tokensKey = tokens.length - 1; tokensKey >= 0; tokensKey--) {
       const currentToken = tokens[tokensKey];
@@ -1267,5 +1335,9 @@ export class ProseWrightParser {
     }
 
     return false;
+  }
+
+  public getTokens(): typeof tokens {
+    return this.internalTokens;
   }
 }

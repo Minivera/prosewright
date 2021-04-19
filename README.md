@@ -132,7 +132,7 @@ Definitions
 John is a warrior, he has 5 health points and is not drowning.
 
 Scene Loop
-if John is drowning and his health points are higher than 0, then decrease his health points by 1 and play scene Loop from act One.
+if John is drowning and his health points are higher than 0, then his health points are decreased by 1 and play scene Loop from act One.
 otherwise, play scene end loop from act One.
 
 Scene End loop
@@ -203,7 +203,7 @@ If a scene ever ends without calling new scenes, then the program ends. It has r
 ### Variables
 Variables are defined by remembering something within the text. Only boolean variables can be created through the act of
 remembering something, you either remember it or not. Variables can be forgotten to set them to false. Similarly,
-variables can be used in conditions using the "remember" keyword or by typing something that was remembered.
+variables can be used in conditions using the "recall" keyword and by typing something that was remembered.
 
 Remembering something has a different scope than other elements in Prosewright. By default, remembered values are
 remembered globally and need to be forgotten to disappear from the story. The scope of a remembered value can be changed
@@ -220,14 +220,14 @@ Remember that mary hid her purse.
 Remember for the scene that John is drowning.
 Remember the player is haunted for the act.
 
-if I remember mary hid her purse, then ...
-if John is drowning, then ...
+if I recall mary hid her purse, then ...
+if recall John is drowning, then ...
 ```
 
 ```js
-thatMaryHidHerPurse = true;
+const thatMaryHidHerPurse = true;
 const ActOne = {
-  playerIsHaunted = true;
+  playerIsHaunted: true,
 
   1() {
     let thatJohnIsDrowning = true;
@@ -252,7 +252,7 @@ A variable may be set based on information asked by the game to the player. Pros
 ask information or actions from the player, only a special type of statement to trigger such an action. Game engines
 using the Prosewright runtime should use those actions and implement these mechanics.
 
-Asking for information is done with the keyword "Ask", followed by a quoted statement and a list of statements as bullet
+Asking for information is done with the keyword "Ask", followed by a quoted statement, and a list of statements as bullet
 points. Each bullet point is an "answer" offered to the player. Prosewright will not process any other information it
 may receive from the game engine and will instead act based on which answer was selected. The question then becomes
 the subject and can be used for conditions or for assigning variables using the "answer" keyword.
@@ -266,6 +266,15 @@ if the player answer is yes, then play scene 2
 else, play scene 3
 ```
 
+### Actions
+Any unrecognized statement will trigger an error unless registered as an action. All subject/keyword/value pair from this
+documentation is an action. More actions can be added when first creating the runtime, which allows for more customization
+of the actions. See the [How to use](#how-to-use) for more information on how to add actions.
+
+```
+Mare picks up the sword <- Will return an action if recognized
+```
+
 ### Objects
 When a user defines something, they create an object that can have properties set to various values, including more
 definitions. There are various keywords that can be used to help define elements, including the keywords identified in
@@ -277,7 +286,7 @@ other sections of this document.
 - "'s/s'" acts as an access to something a definition has. Where "has/possesses/own" will define a sub-object, it can
   then be accessed with the possession character.
 - "is" sets properties to values. Prosewright will try to interpret numbers, but any other value will be saved as
-  a string.
+  a string. Using "deacreased by" or "increased by" will increase or decrease an integer value by the given number.
 - "which/who" acts like the possession characters ("'s/s'") when using chained statements.
 
 If a value is not specified when creating definitions, Prosewright will assume that the definition is a boolean.
@@ -291,19 +300,21 @@ John has 5 hit points.
 
 Mary is a noble, she has a purse, which contains a pen and some lipstick. She loves to take walks, but despises meeting john.
 Mary is not meeting john right now.
+
+John's hit point is decreased by 1
 ```
 
 ```js
 const John = {
   warrior: true,
   sword: {
-    +1Sword: true,
+    '+1Sword': true,
   },
   shield: true,
   knapsack: {
     rations: 5,
   },
-  hitPoints: 5,
+  hitPoints: 4,
 };
 
 const Mary = {
@@ -352,18 +363,31 @@ defined, it will throw an error if none is defined.
 
 ## How to use
 ```js
-import { Prosewright, ProseEngine, ValueStore, defaultLanguage } from 'prosewright';
+import { Prosewright, ProseEngine, ValuesStore, defaultLanguage } from 'prosewright';
 
 // Can pass predefined values, useful for saving the game
-const dataStore = new ValueStore({});
+const dataStore = new ValuesStore({});
 
-const parsedLanguage = new Prosewright(defaultLanguage /* Can add more language definitions here */);
+// Actions are additional keywords added to the language
+const actions = {
+  pickUp: /picks up/i // An action should be either a regex or a string
+}
+
+const parsedLanguage = new Prosewright(defaultLanguage, actions);
 const engine = new ProseEngine(parsedLanguage, dataStore);
+
+engine.parse(`
+Act One
+...
+`);
 
 // Game loop
 while (engine.hasNext()) {
-  const {action, values} = engine.next();
+  const { action, values } = engine.next();
 
   // Do something with the action
 }
+
+// Save data
+const saveFile = dataStore.save();
 ```
