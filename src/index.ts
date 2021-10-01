@@ -30,6 +30,7 @@ John: died from drowning.
 `);
 
 while (engine.hasNext()) {
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   const { action, values } = engine.next();
 
