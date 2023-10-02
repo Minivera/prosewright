@@ -1,4 +1,13 @@
 # Prosewright
+
+> Prosewright is a very experimental and exploration project meant to research interpreters and the value of specialized
+> programming/scripting languages. Feel free to reach out or create issues if this seems like something you'd like 
+> to use for yourself. 
+> 
+> For now, the language and interpreter are unusable, though some basic examples do work. I intend to keep working 
+> on it as I explore interpreters more in the coming months. If you want a more fully-fledged version of Prosewright,
+> I recommend the [Ink](https://www.inklestudios.com/ink/) language.
+
 Write stories, cut-scenes, quests, or even complete games using natural language. Write a play script and turn it into
 an interactive game.
 
